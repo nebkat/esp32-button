@@ -62,6 +62,7 @@ static void send_event(debounce_t db, int ev) {
     button_event_t event = {
         .pin = db.pin,
         .event = ev,
+        .duration = millis() - db.down_time,
     };
     xQueueSend(queue, &event, portMAX_DELAY);
 }
@@ -72,26 +73,25 @@ static void button_task(void *pvParameter)
         for (int idx=0; idx<pin_count; idx++) {
             update_button(&debounce[idx]);
             if (debounce[idx].down_time && (millis() - debounce[idx].down_time > LONG_PRESS_DURATION)) {
-                debounce[idx].down_time = 0;
                 ESP_LOGI(TAG, "%d LONG", debounce[idx].pin);
                 int i=0;
                 while (!button_up(&debounce[idx])) {
                     if (!i) send_event(debounce[idx], BUTTON_DOWN);
                     i++;
-                    if (i>=5) i=0;
+                    if (i>=10) i=0;
                     vTaskDelay(10/portTICK_PERIOD_MS);
                     update_button(&debounce[idx]);
                 }
                 ESP_LOGI(TAG, "%d UP", debounce[idx].pin);
                 send_event(debounce[idx], BUTTON_UP);
+
+                debounce[idx].down_time = 0;
             } else if (button_down(&debounce[idx])) {
                 debounce[idx].down_time = millis();
-                ESP_LOGI(TAG, "%d DOWN", debounce[idx].pin);
                 send_event(debounce[idx], BUTTON_DOWN);
             } else if (button_up(&debounce[idx])) {
-                debounce[idx].down_time = 0;
-                ESP_LOGI(TAG, "%d UP", debounce[idx].pin);
                 send_event(debounce[idx], BUTTON_UP);
+                debounce[idx].down_time = 0;
             }
         }
         vTaskDelay(10/portTICK_PERIOD_MS);
@@ -108,6 +108,7 @@ QueueHandle_t * button_init(unsigned long long pin_select) {
     gpio_config_t io_conf;
     io_conf.mode = GPIO_MODE_INPUT;
     io_conf.pin_bit_mask = pin_select;
+    io_conf.intr_type = GPIO_INTR_DISABLE;
     gpio_config(&io_conf);
 
     // Scan the pin map to determine number of pins
