@@ -127,7 +127,7 @@ QueueHandle_t * button_init(unsigned long long pin_select) {
     uint32_t idx = 0;
     for (int pin=0; pin<=39; pin++) {
         if ((1ULL<<pin) & pin_select) {
-            ESP_LOGI(TAG, "Registering button input: %d", pin);
+            ESP_LOGD(TAG, "Registering button input: %d", pin);
             debounce[idx].pin = pin;
             debounce[idx].down_time = 0;
             debounce[idx].inverted = true;
